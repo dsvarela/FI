@@ -35,12 +35,12 @@ maxiter = 100;
 th_hat = zeros(length(y),3);
 diagP = zeros(length(y),3);
 % initial estimate of theta
-th_hat0 = [.1 .6 0];
+th_hat0 = [10 60 0];
 for k = 1:size(y,1)
     % non linear LS estimate 
-    [th_hat(k,:),diagP(k,:)] = nls(y(k,:),biases,vars,th_hat0,maxiter,mic_locations);
+    [th_hat(k,:),diagP(k,:)] = nls(y(k,:),biases,vars,th_hat0,maxiter,mic_locations*100);
 end
-plotresults(th_hat(:,1:2)',diagP(:,1:2),mic_locations')
+plotresults(th_hat(:,1:2)'/100,diagP(:,1:2)/100^2,mic_locations')
 
 %% A3
 
@@ -64,11 +64,11 @@ Pp = A*Pc*A' + diag(diagP(k,:)); % Predicted Covariance Matrices
 for k = 1:length(y)
     yk_ub = y(k,:)' - biases';
     Q = sqrt(diag(diagP(k,:)));
- [th_p4(:,k+1), th_c4(:,k), Pp] = ekf(yk_ub,Q,R,th_p4(:,k), Pp,mic_locations);
+ [th_p4(:,k+1), th_c4(:,k), Pp] = ekf(yk_ub,Q,R,th_p4(:,k), Pp,mic_locations*100);
  diagPp(k,:) = [Pp(1,1), Pp(2,2)];
 end
 figure;
-plotresults(th_p4(1:2,1:end-1),diagPp.^2,mic_locations')
+plotresults(th_p4(1:2,1:end-1)/100,diagPp.^2,mic_locations')
 
 
 %% Functions
@@ -116,13 +116,13 @@ diagP = diag(inv(dF'/vars*dF));
 end
 
 function dF = Jacobian(theta,mic_locations)
-    c = 343; % speed of sound in [m/s]
+    c = 34300; % speed of sound in [m/s]
     dF = [(theta(1)-mic_locations(:,1))./vecnorm(theta(1:2) -  mic_locations')'/c, ...
     (theta(2)-mic_locations(:,2))./vecnorm(theta(1:2) -  mic_locations')'/c, ...
     ones(7,1)];
 end
 
 function ftheta = f(theta,mic_locations)
-    c = 343; % speed of sound in [m/s]
+    c = 34300; % speed of sound in [m/s]
     ftheta =(theta(3) + vecnorm(theta(1:2)-mic_locations')/c)';
 end

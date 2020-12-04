@@ -20,8 +20,8 @@ function plotresults(trajEst,diagP,micPos)
 
 t = linspace(0,2*pi) ;
 for j = 1:length(trajEst)
-    Px(j,:) = sqrt(diagP(j,1))*cos(t) + trajEst(1,j);
-    Py(j,:) = sqrt(diagP(j,2))*sin(t) + trajEst(2,j);
+    Px(j,:) = 100*sqrt(diagP(j,1))*cos(t) + trajEst(1,j);
+    Py(j,:) = 100*sqrt(diagP(j,2))*sin(t) + trajEst(2,j);
 end
 
 P(1,1:117,1:100) = Px;
@@ -50,7 +50,7 @@ c =1.0e+003*[...
 g = [R T; 0 0 0 1];
 PI0 = [eye(3) zeros(3,1)];
 xc =PI0*g*[trajEst; zeros(1,size(trajEst,2)) ; ones(1,size(trajEst,2))];
-mc =PI0*g*[micPos ; zeros(1,size(micPos,2)) ; ones(1,size(micPos,2))];
+mc =PI0*g*[micPos; zeros(1,size(micPos,2)) ; ones(1,size(micPos,2))];
 Pc = zeros(3,size(P,2),100);
 for i = 1:100
     Pc(:,:,i) =PI0*g*[P(:,:,i) ; zeros(1,size(P(:,:,i),2)) ; ones(1,size(P(:,:,i),2))];
