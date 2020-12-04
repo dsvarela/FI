@@ -1,4 +1,4 @@
-clear; clf; clc;
+clear; close all; clc;
 %% A1
 load('calibration.mat')
 close all
@@ -26,7 +26,7 @@ stds = diag(std(e));
 [N, l] = hist(e(:,1),20);
 Wb=l(2)-l(1); % Bin width
 Ny = length(e); % Nr of samples
-% bar(l, N/(Ny*Wb));
+bar(l, N/(Ny*Wb));
 
 
 %% A2
@@ -37,7 +37,7 @@ diagP = zeros(length(y),3);
 % initial estimate of theta
 th_hat0 = [.1 .6 0];
 for k = 1:size(y,1)
-    % non linear LS estimate 
+    % non linear LS estimate
     [th_hat(k,:),diagP(k,:)] = nls(y(k,:),biases,vars,th_hat0,maxiter,mic_locations);
 end
 plotresults(th_hat(:,1:2)',diagP(:,1:2),mic_locations')
@@ -45,10 +45,18 @@ plotresults(th_hat(:,1:2)',diagP(:,1:2),mic_locations')
 %% A3
 
 %% A4
+
+for k = 1:length(y)-1
+    dx(k) = abs(th_hat(k,1) - th_hat(k+1,1));
+    dy(k) = abs(th_hat(k,2) - th_hat(k+1,2));
+    dp(k) = sqrt(dx(k)^2 + dy(k)^2);
+end
+
 A = eye(3); B = [0 0 1]'; u = 0.5;
-Q = zeros(3,3);
+Q = diag([mean(dx)^2, mean(dy)^2, 10^(-6)]);
+% Q = diag([10^(-4), 10^(-4), 10^(-6)]);
 R = vars;
-diagPp = zeros(length(y),2);
+diagPc = zeros(length(y),2);
 % Predicted States
 th_p4 = zeros(3,length(y));
 % Corrected States
@@ -56,73 +64,76 @@ th_c4 = zeros(3,length(y));
 % Vector to store values of the Kalman Filter for Question Five.
 K = zeros(3,7);
 
-th_0 = [.1;.6;0];
+th_0 = [.10;.60;0];
 Pc = zeros(3,3);
 % First Prediction
 th_p4(:,1) = A*th_0 + B*u; % Predicted States
-Pp = A*Pc*A' + diag(diagP(k,:)); % Predicted Covariance Matrices
+Pp = A*Pc*A' + Q; % Predicted Covariance Matrices
 for k = 1:length(y)
     yk_ub = y(k,:)' - biases';
-    Q = sqrt(diag(diagP(k,:)));
- [th_p4(:,k+1), th_c4(:,k), Pp] = ekf(yk_ub,Q,R,th_p4(:,k), Pp,mic_locations);
- diagPp(k,:) = [Pp(1,1), Pp(2,2)];
+    [th_p4(:,k+1), th_c4(:,k), Pp, Pc] = ekf(yk_ub,Q,R,th_p4(:,k), Pp,mic_locations);
+    diagPc(k,:) = [Pc(1,1), Pc(2,2)];
 end
 figure;
-plotresults(th_p4(1:2,1:end-1),diagPp.^2,mic_locations')
-
+plotresults(th_c4(1:2,1:end),diagPc,mic_locations')
+figure;
+subplot(3,1,1)
+plot(1:117, th_p4(1,1:end-1)', 1:117, th_hat(:,1));
+subplot(3,1,2)
+plot(1:117, th_p4(2,1:end-1)', 1:117, th_hat(:,2));
+subplot(3,1,3)
+plot(1:117, th_p4(3,1:end-1)', 1:117, th_hat(:,3));
 
 %% Functions
-function [th_p4_, th_c4, Pp_] = ekf(yk_ub,Q,R,th_p4,Pp,mic_locations)
-    A = eye(3); B = [0 0 1]'; u = 0.5;
-    
-    % Compute Kalman gain:
-    H = Jacobian(th_p4, mic_locations);
-    K = Pp*H'/(H*Pp*H' + R); % K is 3x7, R is mic uncertainty = stds
+function [th_p4_, th_c4, Pp_, Pc] = ekf(yk_ub,Q,R,th_p4,Pp,mic_locations)
+A = eye(3); B = [0 0 1]'; u = 0.5;
 
-    % Correction of Predicted State (Measurement Update)
-    th_c4 = th_p4 + K*(yk_ub - f(th_p4, mic_locations));
-    Pc = Pp - K*H*Pp;
+% Compute Kalman gain:
+H = Jacobian(th_p4, mic_locations);
+K = Pp*H'/(H*Pp*H' + R); % K is 3x7, R is mic uncertainty = stds
 
-    % Prediction For the Next Step(Time Update)
-    th_p4_ = A*th_c4 + B*u';
-    Pp_ = A*Pc*A' + Q;
-    
+% Correction of Predicted State (Measurement Update)
+th_c4 = th_p4 + K*(yk_ub - f(th_p4, mic_locations));
+Pc = Pp - K*H*Pp;
+
+% Prediction For the Next Step(Time Update)
+th_p4_ = A*th_c4 + B*u';
+Pp_ = A*Pc*A' + Q;
 end
 
 function [th_hat, diagP] = nls(yk,biases,vars,th_hat0,maxiter,mic_locations)
-
 th_hat = th_hat0';
 i = 0;
-while i <= maxiter   
-ftheta = f(th_hat,mic_locations);
-e = yk'-biases'-ftheta;
-
-% Linearise the model around the current estimate
-dF = Jacobian(th_hat, mic_locations);
-
-% Solve a least squares problem to compute delta_theta
-del_theta = (dF'/vars*dF)\dF'/vars*e;
-
-% Update the estimate th_hat
-th_hat = th_hat+ del_theta;
-
-% Set i = i + 1 and check for convergence
-i = i+1; 
-%if del_theta/th_hat <= 10^(-9)
- %  break
-% end
+while i <= maxiter
+    ftheta = f(th_hat,mic_locations);
+    e = yk'-biases'-ftheta;
+    
+    % Linearise the model around the current estimate
+    dF = Jacobian(th_hat, mic_locations);
+    
+    % Solve a least squares problem to compute delta_theta
+    del_theta = (dF'/vars*dF)\dF'/vars*e;
+    
+    % Update the estimate th_hat
+    th_hat = th_hat + del_theta;
+    
+    % Set i = i + 1 and check for convergence
+    i = i+1;
+    %if del_theta/th_hat <= 10^(-9)
+    %  break
+    % end
 end
 diagP = diag(inv(dF'/vars*dF));
 end
 
 function dF = Jacobian(theta,mic_locations)
-    c = 343; % speed of sound in [m/s]
-    dF = [(theta(1)-mic_locations(:,1))./vecnorm(theta(1:2) -  mic_locations')'/c, ...
+c = 343; % speed of sound in [m/s]
+dF = [(theta(1)-mic_locations(:,1))./vecnorm(theta(1:2) -  mic_locations')'/c, ...
     (theta(2)-mic_locations(:,2))./vecnorm(theta(1:2) -  mic_locations')'/c, ...
     ones(7,1)];
 end
 
 function ftheta = f(theta,mic_locations)
-    c = 343; % speed of sound in [m/s]
-    ftheta =(theta(3) + vecnorm(theta(1:2)-mic_locations')/c)';
+c = 343; % speed of sound in [m/s]
+ftheta =(theta(3) + vecnorm(theta(1:2)-mic_locations')/c)';
 end
