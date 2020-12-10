@@ -6,7 +6,7 @@ close all
 % Average over all vectors
 y_avg = sum(y,2)/7;
 % Subtract average from measurements
-e = y- y_avg;
+e = y - y_avg;
 
 % b)
 % E[y_m,k] = E[\tau_k] + E[d/c] + E[b_m] + E[e_(m,k)]
@@ -27,13 +27,13 @@ stds = diag(std(e));
 Wb=l(2)-l(1); % Bin width
 Ny = length(e); % Nr of samples
 bar(l, N/(Ny*Wb));
-
+title('Histogram Values for Microphone 1')
 
 %% A2
 load('experiment.mat')
 maxiter = 100;
 th_hat = zeros(length(y),3);
-diagP = zeros(length(y),3);
+diagP = zeros(length(y),4);
 % initial estimate of theta
 th_hat0 = [.1 .6 0];
 for k = 1:size(y,1)
@@ -43,20 +43,34 @@ end
 plotresults(th_hat(:,1:2)',diagP(:,1:2),mic_locations')
 
 %% A3
+[x_K,diagP_K] = Kalman(eye(2),eye(2),th_hat(:,1:2)',zeros(2),[0.1; 0.6],1.5,7*10^(-7),diagP);
+
+figure(1)
+plotresults(x_K,diagP_K,mic_locations')
+
+figure(2)
+subplot(211)
+plot(x_K(1,:))
+hold on
+plot(th_hat(:,1))
+legend({'KF','NLS'},'Location','northeast')
+title('x Positions for the Robot')
+hold off
+subplot(212)
+plot(x_K(2,:))
+hold on
+plot(th_hat(:,2))
+legend({'KF','NLS'},'Location','northeast')
+title('y Positions for the Robot')
+hold off
 
 %% A4
-
-for k = 1:length(y)-1
-    dx(k) = abs(th_hat(k,1) - th_hat(k+1,1));
-    dy(k) = abs(th_hat(k,2) - th_hat(k+1,2));
-    dp(k) = sqrt(dx(k)^2 + dy(k)^2);
-end
-
 A = eye(3); B = [0 0 1]'; u = 0.5;
-Q = diag([mean(dx)^2, mean(dy)^2, 10^(-6)]);
-% Q = diag([10^(-4), 10^(-4), 10^(-6)]);
+Q = diag([3*10^(-7), 2*10^(-7), 10^(-6)]);
 R = vars;
 diagPc = zeros(length(y),2);
+diagPp = zeros(length(y),2);
+
 % Predicted States
 th_p4 = zeros(3,length(y));
 % Corrected States
@@ -65,7 +79,8 @@ th_c4 = zeros(3,length(y));
 K = zeros(3,7);
 
 th_0 = [.10;.60;0];
-Pc = zeros(3,3);
+% Pc = zeros(3,3);
+Pc = diag([1, 1, 1]);
 % First Prediction
 th_p4(:,1) = A*th_0 + B*u; % Predicted States
 Pp = A*Pc*A' + Q; % Predicted Covariance Matrices
@@ -73,18 +88,50 @@ for k = 1:length(y)
     yk_ub = y(k,:)' - biases';
     [th_p4(:,k+1), th_c4(:,k), Pp, Pc] = ekf(yk_ub,Q,R,th_p4(:,k), Pp,mic_locations);
     diagPc(k,:) = [Pc(1,1), Pc(2,2)];
+    diagPp(k,:) = [Pp(1,1), Pp(2,2)];
 end
+
 figure;
-plotresults(th_c4(1:2,1:end),diagPc,mic_locations')
+plotresults(th_p4(1:2,1:end-1),diagPp,mic_locations')
+
 figure;
 subplot(3,1,1)
-plot(1:117, th_p4(1,1:end-1)', 1:117, th_hat(:,1));
+plot(1:117, th_p4(1,1:end-1)', 1:117, th_hat(:,1), 'linewidth', 2);
+title('x Positions for the Robot', 'fontsize', 16)
+legend('EKF', 'NLS', 'fontsize', 14)
 subplot(3,1,2)
-plot(1:117, th_p4(2,1:end-1)', 1:117, th_hat(:,2));
+plot(1:117, th_p4(2,1:end-1)', 1:117, th_hat(:,2), 'linewidth', 2);
+title('y Positions for the Robot', 'fontsize', 16)
+legend('EKF', 'NLS', 'fontsize', 14)
 subplot(3,1,3)
-plot(1:117, th_p4(3,1:end-1)', 1:117, th_hat(:,3));
+plot(1:117, th_p4(3,1:end-1)', 1:117, th_hat(:,3), 'linewidth', 2);
+title('Beep Time Estimates', 'fontsize', 16)
+legend('EKF', 'NLS', 'fontsize', 14)
 
 %% Functions
+function [x_K,diagP_K] = Kalman(A,C,y,P0,x0,Rscale,Qscale,diagP)
+    x = zeros(length(x0),length(y));
+    x(:,1) = x0;
+    P = P0;
+    Q = Qscale*eye(2);
+    diagP_K = zeros(length(y),length(x0));
+    for n = 2:length(y)
+        R = Rscale*[diagP(n,1), 0; 0, diagP(n,2)];
+        % predicted state estimate:
+        x_pred = A*x(:,n-1);
+        % predicted error covariance:
+        P_pred = A*P*A'+Q;
+        % Kalman gain:
+        K = P_pred*C'/(R+C*P_pred*C');
+        % updated error covariance:
+        P = (eye(2)-K*C)*P_pred;
+        diagP_K(n,:) = [P(1,1),P(2,2)];
+        % updated state estimate:
+        x(:,n) = x_pred+K*(y(:,n)-C*x_pred);
+    end
+    x_K = x;
+end
+
 function [th_p4_, th_c4, Pp_, Pc] = ekf(yk_ub,Q,R,th_p4,Pp,mic_locations)
 A = eye(3); B = [0 0 1]'; u = 0.5;
 
@@ -119,11 +166,11 @@ while i <= maxiter
     
     % Set i = i + 1 and check for convergence
     i = i+1;
-    %if del_theta/th_hat <= 10^(-9)
-    %  break
-    % end
+    if del_theta/th_hat <= 10^(-6)
+        break
+    end
 end
-diagP = diag(inv(dF'/vars*dF));
+diagP = [diag(inv(dF'/vars*dF));i];
 end
 
 function dF = Jacobian(theta,mic_locations)
