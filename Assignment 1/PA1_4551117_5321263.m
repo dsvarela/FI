@@ -99,15 +99,20 @@ subplot(3,1,1)
 plot(1:117, th_p4(1,1:end-1)', 1:117, th_hat(:,1), 'linewidth', 2);
 title('x Positions for the Robot', 'fontsize', 16)
 legend('EKF', 'NLS', 'fontsize', 14)
+xlabel('Time Step [k]','fontsize', 14)
+ylabel('x Position [m]', 'fontsize', 14)
 subplot(3,1,2)
 plot(1:117, th_p4(2,1:end-1)', 1:117, th_hat(:,2), 'linewidth', 2);
 title('y Positions for the Robot', 'fontsize', 16)
 legend('EKF', 'NLS', 'fontsize', 14)
+xlabel('Time Step [k]','fontsize', 14)
+ylabel('y Position [m]', 'fontsize', 14)
 subplot(3,1,3)
 plot(1:117, th_p4(3,1:end-1)', 1:117, th_hat(:,3), 'linewidth', 2);
 title('Beep Time Estimates', 'fontsize', 16)
 legend('EKF', 'NLS', 'fontsize', 14)
-
+xlabel('Time Step [k]','fontsize', 14)
+ylabel('Beep Time [s]','fontsize', 14)
 %% Functions
 function [x_K,diagP_K] = Kalman(A,C,y,P0,x0,Rscale,Qscale,diagP)
     x = zeros(length(x0),length(y));
