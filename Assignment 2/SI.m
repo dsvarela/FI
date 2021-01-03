@@ -14,8 +14,9 @@ zed = zeros(round(length(tin)/6), 1);
 amp = [zed;r_up;r_down;zed;0];
 % uin = amp.*sin(5.*tin)';
  uin = 500*[ones((len-1)/2, 1); -ones((len-1)/2, 1); ones((len-1)/2, 1); -ones((len-1)/2+1, 1);];
-% uin  = 100*rand(length(tin),1);
-% uin = 1000*[ones(len-1, 1); ones(len, 1)];
+% uin  = 10000*rand(length(tin),1);
+% uin = 100*[zeros(len-1, 1); ones(len, 1)];
+% uin = 100*[zeros(len-1, 1); zeros(len, 1)];
 % uin  = 10*(sin(3*pi*tin) + sin(10*pi*tin) + sin(100*pi*tin) + sin(50*pi*tin));
 %% Data Collection
 y_raw = exciteSystem(SN,uin,fs);
@@ -43,12 +44,12 @@ Su = svd(U);
 semilogy(1:s, Su);
 %%
 % figure(1);
-n = 1;
+n = 2;
 [A,B,C,D,x0,sv,~] = subspaceID(u,y,s,n, 'po-moesp');
 [yhat, ~] = simsystem(A,B,C,D,x0,u);
 plot(t,yhat, t,y);
 %%
-N_ = len; n = 4;
+N_ = len; n = 2;
 yt = y(1:N_); yv = y(N_+1:end);
 ut = u(1:N_); uv = u(N_+1:end);
 
